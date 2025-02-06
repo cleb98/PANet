@@ -53,7 +53,7 @@ class Resize(object):
         else:
             label = tr_F.resize(label, self.size, interpolation=Image.NEAREST)
         inst = tr_F.resize(inst, self.size, interpolation=Image.NEAREST)
-        scribble = tr_F.resize(scribble, self.size, interpolation=Image.ANTIALIAS)
+        scribble = tr_F.resize(scribble, self.size, interpolation=Image.LANCZOS) #prima c'era anti-aliasing
 
         sample['image'] = img
         sample['label'] = label

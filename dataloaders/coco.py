@@ -6,8 +6,9 @@ from pycocotools.coco import COCO
 import numpy as np
 from PIL import Image
 import torch
+import matplotlib.pyplot as plt
 
-from .common import BaseDataset
+from dataloaders.common import BaseDataset
 
 class COCOSeg(BaseDataset):
     """
@@ -26,8 +27,8 @@ class COCOSeg(BaseDataset):
     """
     def __init__(self, base_dir, split, transforms=None, to_tensor=None):
         super().__init__(base_dir)
-        self.split = split + '2014'
-        annFile = f'{base_dir}/annotations/instances_{self.split}.json'
+        self.split = split
+        annFile = f'{base_dir}/annotations/instances_{self.split+'2017'}.json'
         self.coco = COCO(annFile)
 
         self.ids = self.coco.getImgIds()
@@ -44,7 +45,7 @@ class COCOSeg(BaseDataset):
         annIds = self.coco.getAnnIds(imgIds=img_meta['id'])
 
         # Open Image
-        image = Image.open(f"{self._base_dir}/{self.split}/{img_meta['file_name']}")
+        image = Image.open(f"{self._base_dir}/images/{self.split}/{img_meta['file_name']}")
         if image.mode == 'L':
             image = image.convert('RGB')
 
@@ -94,3 +95,67 @@ class COCOSeg(BaseDataset):
                 sample[key_prefix + '_' + key_suffix] = aux_attrib_val[key_suffix]
 
         return sample
+
+
+def main():
+    import numpy as np
+    from torchvision.transforms import ToTensor
+    from torch.utils.data import DataLoader
+
+    # Initialize dataset
+    ds = COCOSeg(
+        base_dir='/work/tesi_cbellucci/coco',
+        split='val',
+        transforms=None,
+        to_tensor=ToTensor()  # Add basic ToTensor conversion
+    )
+
+    # Create DataLoader
+    loader = DataLoader(
+        ds,
+        batch_size=4,
+        shuffle=True,
+        num_workers=1,
+        pin_memory=True,
+        drop_last=True
+
+    )
+
+    # Visualization parameters
+    num_batches_to_show = 2
+    images_per_batch = 4
+
+    for batch_idx, batch in enumerate(loader):
+        if batch_idx >= num_batches_to_show:
+            break
+
+        plt.figure(figsize=(20, 10))
+
+        for sample_idx, sample in enumerate(batch[:images_per_batch]):
+            # Get image and masks
+            img = sample['image_t'].permute(1, 2, 0).numpy().astype(np.uint8)
+
+            # Combine all semantic masks
+            mask = np.zeros_like(img[:, :, 0], dtype=np.uint8)
+            for cat_id, cat_mask in sample['label'].items():
+                mask = np.maximum(mask, np.array(cat_mask))
+
+            # Create subplots
+            # Image
+            plt.subplot(2, images_per_batch, sample_idx + 1)
+            plt.imshow(img)
+            plt.title(f"Image {sample_idx + 1}\n{sample['id']}")
+            plt.axis('off')
+
+            # Mask
+            plt.subplot(2, images_per_batch, sample_idx + 1 + images_per_batch)
+            plt.imshow(mask, cmap='jet', vmin=0, vmax=90)  # COCO has 80 classes
+            plt.title(f"Semantic Mask {sample_idx + 1}")
+            plt.axis('off')
+
+        plt.tight_layout()
+        plt.show()
+
+
+if __name__ == '__main__':
+    main()

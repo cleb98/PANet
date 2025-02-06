@@ -7,9 +7,12 @@ import numpy as np
 import torch
 import torch.optim
 import torch.nn as nn
+import torchvision as tv
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 from torchvision.transforms import Compose
+from torch.utils.tensorboard import SummaryWriter
+
 
 from models.fewshot import FewShotSeg
 from dataloaders.customized import voc_fewshot, coco_fewshot
@@ -17,7 +20,30 @@ from dataloaders.transforms import ToTensorNormalize
 from dataloaders.transforms import Resize, DilateScribble
 from util.metric import Metric
 from util.utils import set_seed, CLASS_LABELS, get_bbox
+from util.visual_utils import decode_and_apply_mask_overlay, apply_mask_overlay
+import matplotlib.pyplot as plt
 from config import ex
+
+def plot_images(np_query_images, np_query_pred):
+    #type: (torch.Tensor, torch.Tensor) -> None
+    """
+    Plot input images and predicted masks overlayed on them.
+    :param np_query_images: Input images to plot (B, 3, H, W), values in range [0, 1], type: torch.Tensor
+    :param np_query_pred: Predicted masks to overlay on images (B, H, W), values in range [0, 1], type: torch.Tensor
+    """
+    np_query_images = np_query_images.detach().cpu().numpy()
+    np_query_pred = np_query_pred.detach().cpu().numpy()
+    # save plot of images with matplotlib
+    fig, ax = plt.subplots(1, 2, figsize=(8, 5))
+    ax[0].imshow(np_query_images)
+    ax[1].imshow(np_query_pred)
+    ax[0].title.set_text('Input Image')
+    ax[1].title.set_text('Predicted Mask')
+    ax[0].axis('off')
+    ax[1].axis('off')
+    plt.tight_layout()
+    # plt.savefig(f'output_{run}.png')
+    plt.show()
 
 
 @ex.automain
@@ -59,6 +85,11 @@ def main(_run, _config, _log):
         transforms.append(DilateScribble(size=_config['scribble_dilation']))
     transforms = Compose(transforms)
 
+    # init logging stuffs for tensorboard
+    log_path = _config['log_tensorboard']
+    _log.info(f'tensorboard --logdir={log_path}\n')
+    sw = SummaryWriter(log_path)
+
 
     _log.info('###### Testing begins ######')
     metric = Metric(max_label=max_label, n_runs=_config['n_runs'])
@@ -85,7 +116,7 @@ def main(_run, _config, _log):
                                     num_workers=1, pin_memory=True, drop_last=False)
             _log.info(f"Total # of Data: {len(dataset)}")
 
-
+            it = 0 #to count the number of iterations
             for sample_batched in tqdm.tqdm(testloader):
                 if _config['dataset'] == 'COCO':
                     label_ids = [coco_cls_ids.index(x) + 1 for x in sample_batched['class_ids']]
@@ -122,6 +153,29 @@ def main(_run, _config, _log):
                 query_pred, _ = model(support_images, support_fg_mask, support_bg_mask,
                                       query_images)
 
+                #visualization
+                if type(query_images) == list:
+                    query_images = query_images[0]
+
+                inp = apply_mask_overlay(query_images, query_labels)
+                out = apply_mask_overlay(query_images, query_pred.argmax(dim=1))
+                grid = torch.cat([inp, out], dim=0)
+                grid = tv.utils.make_grid(
+                    grid, normalize=True, value_range=(0, 1),
+                    nrow=grid.size(0) ##check this se mette le img su una riga o su due
+                )
+                sw.add_image(
+                    tag=f'results_{it}',
+                    img_tensor=grid, global_step=run
+                )
+                it += 1
+                # #overlay mask on images, convert to numpy and permute to get a plot of the images
+                # pred = query_pred.argmax(dim=1)
+                # np_query_pred = apply_mask_overlay(query_images, pred).squeeze().permute(1, 2, 0)
+                # np_query_images = apply_mask_overlay(query_images, query_labels).squeeze().permute(1, 2, 0)
+                # plot_images(np_query_images, np_query_pred)
+                #INTEGRA TENSORBOARD MUPOVITI!!!!
+                #visualization end
                 metric.record(np.array(query_pred.argmax(dim=1)[0].cpu()),
                               np.array(query_labels[0].cpu()),
                               labels=label_ids, n_run=run)

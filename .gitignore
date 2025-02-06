@@ -1,6 +1,60 @@
 runs/
-__pycache__/
-*.pth
 *.ipynb
 *DS_Store
 *.sh
+
+ # Byte-compiled files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+.env/
+
+# PyTorch cache (if using pre-trained models)
+~/.cache/torch/
+~/.torch/
+
+# Checkpoints or model files
+*.pt
+*.pth
+*.ck
+
+# Tensorboard logs
+*events.out.tfevents*
+
+# Pycharm stuff
+.idea/
+
+# Logs
+log/
+*.log
+*.err
+*.out
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+#image format
+*.jpg
+*.png
+*.jpeg
+*.npy
+
+#raw data
+*.csv
+*.json
+
+#compressed files
+*.zip
+*.tar
+*.tar.gz
+*.gz
+
+
+
+

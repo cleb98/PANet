@@ -3,11 +3,13 @@ import os
 import re
 import glob
 import itertools
+from path import Path
 
 import sacred
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 from sacred.utils import apply_backspaces_and_linefeeds
+
 
 sacred.SETTINGS['CONFIG']['READ_ONLY_CONFIG'] = False
 sacred.SETTINGS.CAPTURE_MODE = 'no'
@@ -23,16 +25,23 @@ for source_file in sources_to_save:
 
 @ex.config
 def cfg():
-    """Default configurations"""
+    ################ SET TRAINING PARAMETERS or TEST PARAMETERS ################
     input_size = (417, 417)
     seed = 1234
     cuda_visable = '0, 1, 2, 3, 4, 5, 6, 7'
     gpu_id = 0
-    mode = 'test' # 'train' or 'test'
+    mode = 'train' #'train' or 'test'
+    dataset = 'COCO'  # 'VOC' or 'COCO'
+    snapshot = './runs/PANet_COCO_align_sets_0_1way_5shot_[train]/9/snapshots/30000.pth'
+    n_ways = 1
+    n_shots = 5
+    n_queries = 1
+    log_tensorboard = f'./runs/{mode}_{dataset}_{n_ways}way_{n_shots}shot_{n_queries}query'
 
+#____________________________________________________________________________________________#
 
     if mode == 'train':
-        dataset = 'VOC'  # 'VOC' or 'COCO'
+        dataset = dataset
         n_steps = 30000
         label_sets = 0
         batch_size = 1
@@ -47,9 +56,9 @@ def cfg():
         }
 
         task = {
-            'n_ways': 1,
-            'n_shots': 1,
-            'n_queries': 1,
+            'n_ways': n_ways,
+            'n_shots': n_shots,
+            'n_queries': n_queries,
         }
 
         optim = {
@@ -60,7 +69,7 @@ def cfg():
 
     elif mode == 'test':
         notrain = False
-        snapshot = './runs/PANet_VOC_sets_0_1way_1shot_[train]/1/snapshots/30000.pth'
+        snapshot = snapshot
         n_runs = 5
         n_steps = 1000
         batch_size = 1
@@ -94,6 +103,8 @@ def cfg():
     else:
         raise ValueError('Wrong configuration for "mode" !')
 
+    print(f"Training mode: {mode}, Dataset: {dataset}")
+
 
     exp_str = '_'.join(
         [dataset,]
@@ -106,8 +117,11 @@ def cfg():
         'init_path': './pretrained_model/vgg16-397923af.pth',
         'VOC':{'data_dir': '../../data/Pascal/VOCdevkit/VOC2012/',
                'data_split': 'trainaug',},
-        'COCO':{'data_dir': '../../data/COCO/',
-                'data_split': 'train',},
+
+        # 'COCO':{'data_dir': '../../data/COCO/',
+        #         'data_split': 'train',},
+        'COCO':{'data_dir': '/work/tesi_cbellucci/coco',
+                'data_split': 'train',}
     }
 
 @ex.config_hook

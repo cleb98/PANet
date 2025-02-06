@@ -29,6 +29,8 @@ CLASS_LABELS = {
     }
 }
 
+
+
 def get_bbox(fg_mask, inst_mask):
     """
     Get the ground truth bounding boxes
