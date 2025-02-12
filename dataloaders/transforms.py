@@ -46,20 +46,43 @@ class Resize(object):
     def __call__(self, sample):
         img, label = sample['image'], sample['label']
         inst, scribble = sample['inst'], sample['scribble']
-        img = tr_F.resize(img, self.size)
+        img = tr_F.resize(img, self.size, interpolation=Image.BILINEAR)
+        # if isinstance(label, dict):
+        #     label = {catId: tr_F.resize(x, self.size, interpolation=Image.NEAREST)
+        #              for catId, x in label.items()}
+        # else:
+        #     label = tr_F.resize(label, self.size, interpolation=Image.NEAREST)
         if isinstance(label, dict):
-            label = {catId: tr_F.resize(x, self.size, interpolation=Image.NEAREST)
-                     for catId, x in label.items()}
+            label = {
+                catId: self._resize_tensor(x, interpolation=Image.NEAREST)
+                for catId, x in label.items()
+            }
         else:
-            label = tr_F.resize(label, self.size, interpolation=Image.NEAREST)
-        inst = tr_F.resize(inst, self.size, interpolation=Image.NEAREST)
-        scribble = tr_F.resize(scribble, self.size, interpolation=Image.LANCZOS) #prima c'era anti-aliasing
+            label = self._resize_tensor(label,
+                                        interpolation=Image.NEAREST)
+        # inst = tr_F.resize(inst, self.size, interpolation=Image.NEAREST)
+        # scribble = tr_F.resize(scribble, self.size, interpolation=Image.LANCZOS) #prima c'era anti-aliasing
+            # For instance and scribble masks (they are tensors)
+        inst = self._resize_tensor(inst,
+                                   interpolation=Image.NEAREST)
+        scribble = self._resize_tensor(scribble,
+                                       interpolation=Image.BILINEAR)  # if "lanczos" causes issues, try "bilinear"
 
         sample['image'] = img
         sample['label'] = label
         sample['inst'] = inst
         sample['scribble'] = scribble
         return sample
+
+    def _resize_tensor(self, x, interpolation):
+        # If x is a 2D tensor (mask), add a channel dimension.
+        if torch.is_tensor(x) and x.dim() == 2:
+            x = x.unsqueeze(0)  # from (H, W) to (1, H, W)
+            x = tr_F.resize(x, self.size, interpolation=interpolation)
+            # x = x.squeeze(0)    # back to (H, W)
+        else:
+            x = tr_F.resize(x, self.size, interpolation=interpolation)
+        return x
 
 class DilateScribble(object):
     """
@@ -95,8 +118,10 @@ class ToTensorNormalize(object):
                      for catId, x in label.items()}
         else:
             label = torch.Tensor(np.array(label)).long()
-        inst = torch.Tensor(np.array(inst)).long()
-        scribble = torch.Tensor(np.array(scribble)).long()
+        if inst is not None :
+            inst = torch.Tensor(np.array(inst)).long()
+        if scribble is not None:
+            scribble = torch.Tensor(np.array(scribble)).long()
 
         sample['image'] = img
         sample['label'] = label

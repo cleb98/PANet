@@ -71,7 +71,7 @@ def apply_mask_overlay(img, masks):
         # m1: colored mask for class `idx`; shape: (3, H, W)
         m1 = masks[class_idx][None, ...].repeat((3, 1, 1)).unsqueeze(0)
 
-        if m1.dtype != torch.float32 and m1.dtype != torch.float64 and m1.dtype != torch.float16:
+        if m1.dtype != torch.float32:
             m1 = m1.float()
 
         colored_mask = torch.tensor(colors[class_idx], dtype=torch.float32, device=img.device).reshape(-1, 1, 1) / 255.

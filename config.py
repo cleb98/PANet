@@ -30,13 +30,14 @@ def cfg():
     seed = 1234
     cuda_visable = '0, 1, 2, 3, 4, 5, 6, 7'
     gpu_id = 0
-    mode = 'train' #'train' or 'test'
+    mode = 'test' #'train' or 'test'
     dataset = 'COCO'  # 'VOC' or 'COCO'
-    snapshot = './runs/PANet_COCO_align_sets_0_1way_5shot_[train]/9/snapshots/30000.pth'
+    snapshot = './runs/PANet_COCO_align_sets_0_1way_1shot_[train]/8/snapshots/30000.pth'
     n_ways = 1
-    n_shots = 5
+    n_shots = 1
     n_queries = 1
     log_tensorboard = f'./runs/{mode}_{dataset}_{n_ways}way_{n_shots}shot_{n_queries}query'
+    events_folder = f'./runs/'
 
 #____________________________________________________________________________________________#
 
@@ -121,7 +122,8 @@ def cfg():
         # 'COCO':{'data_dir': '../../data/COCO/',
         #         'data_split': 'train',},
         'COCO':{'data_dir': '/work/tesi_cbellucci/coco',
-                'data_split': 'train',}
+                'data_split': 'train',},
+
     }
 
 @ex.config_hook

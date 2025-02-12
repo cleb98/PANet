@@ -87,7 +87,8 @@ def main(_run, _config, _log):
 
     # init logging stuffs for tensorboard
     log_path = _config['log_tensorboard']
-    _log.info(f'tensorboard --logdir={log_path}\n')
+    event_path = _config['events_folder']
+    _log.info(f'tensorboard --logdir={event_path}\n')
     sw = SummaryWriter(log_path)
 
 
@@ -112,7 +113,7 @@ def main(_run, _config, _log):
             )
             if _config['dataset'] == 'COCO':
                 coco_cls_ids = dataset.datasets[0].dataset.coco.getCatIds()
-            testloader = DataLoader(dataset, batch_size=_config['batch_size'], shuffle=False,
+            testloader = DataLoader (dataset, batch_size=_config['batch_size'], shuffle=False,
                                     num_workers=1, pin_memory=True, drop_last=False)
             _log.info(f"Total # of Data: {len(dataset)}")
 

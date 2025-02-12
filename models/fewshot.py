@@ -52,10 +52,11 @@ class FewShotSeg(nn.Module):
         img_size = supp_imgs[0][0].shape[-2:]
 
         ###### Extract features ######
-        imgs_concat = torch.cat([torch.cat(way, dim=0) for way in supp_imgs]
-                                + [torch.cat(qry_imgs, dim=0),], dim=0)
-        img_fts = self.encoder(imgs_concat)
-        fts_size = img_fts.shape[-2:]
+        imgs_concat = torch.cat([torch.cat(way, dim=0) for way in supp_imgs] #[B * n_ways * n_shot, 3, H, W] join the support to the batch axes
+                                + [torch.cat(qry_imgs, dim=0),], dim=0)      # [B * n_queries, 3, H, W], join tutte le query lungo la dimensione del batch
+                                                                             #img concat: [B*(n_ways * n_shot + n_queries), 3, H, W]
+        img_fts = self.encoder(imgs_concat) #[B*(n_ways * n_shot + n_queries), 512, H', W']
+        fts_size = img_fts.shape[-2:] #store (H', W')
 
         supp_fts = img_fts[:n_ways * n_shots * batch_size].view(
             n_ways, n_shots, batch_size, -1, *fts_size)  # Wa x Sh x B x C x H' x W'
