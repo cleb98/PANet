@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .vgg import Encoder
+from .ResNet import resnet50
+
 
 
 class FewShotSeg(nn.Module):
@@ -29,8 +31,10 @@ class FewShotSeg(nn.Module):
         self.config = cfg or {'align': False}
 
         # Encoder
-        self.encoder = nn.Sequential(OrderedDict([
-            ('backbone', Encoder(in_channels, self.pretrained_path)),]))
+        # self.encoder = nn.Sequential(OrderedDict([
+        #     ('backbone', Encoder(in_channels, self.pretrained_path)),]))
+
+        self.encoder = resnet50(pretrained_path=self.pretrained_path, num_classes=None)
 
 
     def forward(self, supp_imgs, fore_mask, back_mask, qry_imgs):
@@ -55,7 +59,7 @@ class FewShotSeg(nn.Module):
         imgs_concat = torch.cat([torch.cat(way, dim=0) for way in supp_imgs] #[B * n_ways * n_shot, 3, H, W] join the support to the batch axes
                                 + [torch.cat(qry_imgs, dim=0),], dim=0)      # [B * n_queries, 3, H, W], join tutte le query lungo la dimensione del batch
                                                                              #img concat: [B*(n_ways * n_shot + n_queries), 3, H, W]
-        img_fts = self.encoder(imgs_concat) #[B*(n_ways * n_shot + n_queries), 512, H', W']
+        img_fts = self.encoder(imgs_concat) #[B*(n_ways * n_shot + n_queries), C', H', W']
         fts_size = img_fts.shape[-2:] #store (H', W')
 
         supp_fts = img_fts[:n_ways * n_shots * batch_size].view(
@@ -86,6 +90,7 @@ class FewShotSeg(nn.Module):
             prototypes = [bg_prototype,] + fg_prototypes
             dist = [self.calDist(qry_fts[:, epi], prototype) for prototype in prototypes]
             pred = torch.stack(dist, dim=1)  # N x (1 + Wa) x H' x W'
+            pred = nn.Softmax(dim=1)(pred)
             outputs.append(F.interpolate(pred, size=img_size, mode='bilinear'))
 
             ###### Prototype alignment loss ######

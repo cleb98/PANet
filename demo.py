@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 import torchvision.transforms as transforms
 from torchvision.transforms import Compose
@@ -191,18 +190,25 @@ class SupportDataset(BaseDataset):
 #     # Mostra entrambi i plot
 #     plt.show()
 
-def denormalize(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+def denormalize_tensor(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
     """
-    Denormalizza un'immagine (H, W, C) applicando l'operazione inversa della normalizzazione.
+    Denormalizza un'immagine (C, H, W) applicando l'operazione inversa della normalizzazione.
+    Se necessario, l'immagine viene clipppata per garantire che i valori siano compresi tra [0, 1].
     """
-    # Assumiamo che img sia un array numpy di tipo float e con valori in float
-    mean = np.array(mean)
-    std = np.array(std)
-    img = img * std + mean  # ripristina i valori originali
-    return np.clip(img, 0, 1)
+    batch = False
+    if len(img.shape) == 4:
+        batch = True
+        img = img.squeeze(0)
+    mean = torch.tensor(mean).view(3, 1, 1).to(img.device)
+    std = torch.tensor(std).view(3, 1, 1).to(img.device)
+    img = img * std + mean 
+    img = torch.clamp(img, 0, 1)  
+    if batch:
+        img = img.unsqueeze(0)
+    return img
 
 
-def plot_images(query_images: torch.Tensor, desc = "Input Image"):
+def plot_image(query_images: torch.Tensor, desc = " "):
     """
     Plots input images.
 
@@ -214,8 +220,6 @@ def plot_images(query_images: torch.Tensor, desc = "Input Image"):
     img = np_images[0]  # Forma: (3, H, W)
     # Trasponi in modo da avere (H, W, 3) per plt.imshow()
     img = np.transpose(img, (1, 2, 0))
-    # Denormalizza l'immagine
-    img = denormalize(img)
     # Crea la figura e l'asse
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.imshow(img)
@@ -223,6 +227,8 @@ def plot_images(query_images: torch.Tensor, desc = "Input Image"):
     ax.axis("off")
 
     plt.show()
+
+
 
 @ex.automain
 def main(_config):
@@ -272,9 +278,8 @@ def main(_config):
         for i, class_id in enumerate(class_ids):
             for j, shot in enumerate(support_masks[i]):
                 shot = getMask(shot, class_id, class_ids)
-                mask_classes.append(shot)
+                mask_classes.append(shot) # list of dicts, each dict contains fg_mask and bg_mask for a class
 
-        #mask_classes: list of dicts, each dict contains fg_mask and bg_mask for a class
         #foreground and background masks for support images
         support_fg_mask = [[shot.float().cuda() for shot in way['fg_mask']]
                            for way in mask_classes] #  way x shot x [B x H x W], list of lists of tensors
@@ -284,24 +289,24 @@ def main(_config):
         # print('mask:', support_fg_mask[0][0].shape)
         # print('mask:', support_bg_mask[0][0].shape)
 
-
-
         for i, query_images in enumerate(query_loader):
             query_images = query_images.cuda() #N x [B x 3 x H x W], tensors ( N is # of queries x batch)
 
             # Passa i supporti nel formato corretto al modello
             query_preds, _ = model(support_images, support_fg_mask, support_bg_mask, [query_images])
-
+            query_preds = torch.where(query_preds > 0.5, torch.ones_like(query_preds), torch.zeros_like(query_preds))
             if type(query_images) == list:
                 query_images = query_images[0]
 
+            query_images = denormalize_tensor(query_images)
             query_preds = apply_mask_overlay(query_images, query_preds.argmax(dim=1))
-            plot_images(query_preds, desc=f'Query Image {i+1}')
+            plot_image(query_preds, desc=f'Query Image {i+1}')
 
         for i, (images, masks) in enumerate(zip(support_images, support_masks)):
             for img, mask in zip(images, masks):
+                img = denormalize_tensor(img)
                 img = apply_mask_overlay(img, mask.squeeze(0))
-                plot_images(img, desc=f"Support Image {i+1}")
+                plot_image(img, desc=f"Support Image {i+1}")
 
             # query_preds = [apply_mask_overlay(img.unsqueeze(0), pred)
             #                for img, pred in zip(query_images, query_preds)]

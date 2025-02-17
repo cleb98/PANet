@@ -3,8 +3,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=30G
 #SBATCH --gres=gpu:1
-#SBATCH --time=12:00:00
-#SBATCH --job-name=PaNet_5_shot_train
+#SBATCH --time=24:00:00
+#SBATCH --job-name=PaNet_1_shot_train_resnet
 #SBATCH --partition=all_usr_prod
 #SBATCH --account=tesi_cbellucci
 #SBATCH -e slurm-log/%x-%j.err
