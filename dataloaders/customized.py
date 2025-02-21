@@ -252,6 +252,7 @@ def coco_fewshot(base_dir, split, transforms, to_tensor, labels, n_ways, n_shots
                             minlength=n_ways)
     # Set the number of images for each class
     n_elements = [n_shots + x for x in cnt_query]
+
     # Create paired dataset
     paired_data = PairedDataset(subsets, n_elements=n_elements, max_iters=max_iters, same=False,
                                 pair_based_transforms=[

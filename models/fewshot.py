@@ -30,11 +30,13 @@ class FewShotSeg(nn.Module):
         self.pretrained_path = pretrained_path
         self.config = cfg or {'align': False}
 
-        # Encoder
-        # self.encoder = nn.Sequential(OrderedDict([
-        #     ('backbone', Encoder(in_channels, self.pretrained_path)),]))
+        if self.config['net'] == 'vgg':
+            # Encoder
+            self.encoder = nn.Sequential(OrderedDict([
+                ('backbone', Encoder(in_channels, self.pretrained_path)),]))
 
-        self.encoder = resnet50(pretrained_path=self.pretrained_path, num_classes=None)
+        elif self.config['net'] == 'resnet50':
+            self.encoder = resnet50(pretrained_path=self.pretrained_path, num_classes=None)
 
 
     def forward(self, supp_imgs, fore_mask, back_mask, qry_imgs):

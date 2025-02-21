@@ -111,85 +111,6 @@ class SupportDataset(BaseDataset):
         return sample
 
 
-# def plot_results(preds, support_images):
-#     """
-#     Plots support images and query predictions in two separate figures.
-#
-#     - Support images are provided as a list of lists; each inner list contains
-#       |shot| tensori per una determinata classe. The grid is arranged with:
-#          * number of rows = number of classes
-#          * number of columns = number of shots per class
-#     - Query predictions (preds) are provided as a list of tensori (RGB images)
-#       and are displayed in a separate figure.
-#
-#     Args:
-#       preds: list of query tensors (each of shape (1, 3, H, W))
-#       support_images: list of lists; each inner list contains support image tensors
-#                       (each of shape (1, 3, H, W)) for one class.
-#     """
-#
-#     ####### PLOT 1: SUPPORT IMAGES ########
-#     num_classes = len(support_images)
-#     if num_classes == 0:
-#         print("No support images provided!")
-#         return
-#     # Assumiamo che ogni classe abbia lo stesso numero di shot
-#     shots = len(support_images[0])
-#
-#     fig_support, axes_support = plt.subplots(num_classes, shots,
-#                                              figsize=(5 * shots, 5 * num_classes))
-#
-#     # Assicuriamoci che axes_support sia un array 2D, indipendentemente da num_classes e shots
-#     if num_classes == 1 and shots == 1:
-#         axes_support = np.array([[axes_support]])
-#     elif num_classes == 1:
-#         axes_support = np.atleast_2d(axes_support)  # Diventa (1, shots)
-#     elif shots == 1:
-#         axes_support = axes_support[:, np.newaxis]  # Diventa (num_classes, 1)
-#
-#     # Itera per ogni classe e per ogni shot della classe
-#     for i, class_supports in enumerate(support_images):
-#         for j, support_img in enumerate(class_supports):
-#             # Convertiamo il tensore in immagine (H, W, 3)
-#             np_support = support_img.squeeze(0).permute(1, 2, 0).cpu().numpy()
-#             np_support = np.clip(np_support, 0, 1)
-#             axes_support[i, j].imshow(np_support)
-#             axes_support[i, j].set_title(f"Class {i + 1} - Shot {j + 1}")
-#             axes_support[i, j].axis("off")
-#
-#     fig_support.suptitle("Support Images", fontsize=16)
-#     plt.tight_layout(rect=[0, 0, 1, 0.95])
-#
-#     ####### PLOT 2: QUERY PREDICTIONS ########
-#     num_queries = len(preds)
-#     if num_queries == 0:
-#         print("No query predictions provided!")
-#         return
-#
-#     # Se c'è una sola query, trattiamola in modo speciale
-#     if num_queries == 1:
-#         fig_query, ax = plt.subplots(1, 1, figsize=(5, 5))
-#         np_pred = preds[0].squeeze(0).permute(1, 2, 0).cpu().numpy()
-#         np_pred = np.clip(np_pred, 0, 1)
-#         ax.imshow(np_pred)
-#         ax.set_title("Query 1")
-#         ax.axis("off")
-#     else:
-#         fig_query, axes_query = plt.subplots(1, num_queries, figsize=(5 * num_queries, 5))
-#         # Se plt.subplots restituisce un array 1D per una singola riga, iteriamo direttamente
-#         for i, pred in enumerate(preds):
-#             np_pred = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
-#             np_pred = np.clip(np_pred, 0, 1)
-#             axes_query[i].imshow(np_pred)
-#             axes_query[i].set_title(f"Query {i + 1}")
-#             axes_query[i].axis("off")
-#
-#     fig_query.suptitle("Query Predictions", fontsize=16)
-#     plt.tight_layout(rect=[0, 0, 1, 0.95])
-#
-#     # Mostra entrambi i plot
-#     plt.show()
-
 def denormalize_tensor(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
     """
     Denormalizza un'immagine (C, H, W) applicando l'operazione inversa della normalizzazione.
@@ -240,23 +161,18 @@ def main(_config):
     model.load_state_dict(torch.load(_config['snapshot'], map_location='cpu'))
     model.eval()
 
-    files = './spal' #demo
+    # input_folder = './demo/queries'
+    # annotation_path = './demo/support/support_annotation.json'
+    # support_base_dir = './demo/support/'
+
+
+    files = './ripetuto' #spal #demo #ripetuto
     input_folder = os.path.join(files, 'queries')
     support_base_dir = os.path.join(files, 'support')
-    support_classes_dir = os.path.join(support_base_dir, 'class1')
-    # #elenca solo le cartelle non i file
-    # support_classes = [c for c in os.listdir(support_base_dir) if os.path.isdir(os.path.join(support_base_dir, c))]
-    # print(support_classes)
     annotation_path = os.path.join(support_base_dir, 'support_annotation.json')
-        #'./demo/support/support_annotation.json'
 
-    # support_base_dir = './demo/support/'
-    net = _config['net']
     n_shot = _config['n_shots']
     n_ways = _config['n_ways']
-    # if n_ways != len(support_classes):
-    #     raise ValueError(f"Expected {n_ways} classes, but found {len(support_classes)}")
-
 
 
     image_paths = [os.path.join(input_folder, f) for f in os.listdir(input_folder) if
@@ -265,67 +181,48 @@ def main(_config):
     query_dataset = QueryDataset(image_paths, _config['input_size'])
     query_loader = DataLoader(query_dataset, batch_size=_config['task']['n_queries'], shuffle=False)
 
-    support_dataset = SupportDataset(
-        support_classes_dir, #support_base_dir,
-        annotation_path,
-        _config['input_size'],
-        to_tensor=ToTensorNormalize()
-    )
+    support_dataset = SupportDataset(support_base_dir, annotation_path, _config['input_size'], to_tensor=ToTensorNormalize())
     support_loader = DataLoader(support_dataset, batch_size=_config['task']['n_shots'], shuffle=False)
 
-
     with torch.no_grad():
+        support_samples = next(iter(support_loader))
 
-        support_samples = []
-        support_images = []
-        support_masks = []
-        class_ids = []
-        mask_classes = []
-        for i, support_sample in enumerate(support_loader):
-            if i == n_shot:
-                break
-            support_samples.append(support_sample)
-            support_images.append(support_sample['image'].cuda())
-            support_masks.append(list(support_sample['label'].values()))
-            # class_ids.append(list(support_sample.get('label').keys())[i])
-            # if len(class_ids[i]) != n_ways:
-            #     raise ValueError(f"Expected {n_ways} classes, but got {len(class_ids)}")
+        # Organizza le immagini di supporto nel formato
+        # support images way x shot x [B x 3 x H x W], list of lists of tensors
+        support_images = [
+            [support_samples['image'][shot_idx].cuda().unsqueeze(0) for shot_idx in range(len(support_samples['image']))]
+        ]
 
-        for mask in support_masks: #è lista di maschere per ogni support sample li devo mettere su device i tensori
-            for i, m in enumerate(mask):
-                mask[i] = m.cuda()
+        # Converte le maschere in una lista ordinata e le organizza per shot (deve essere lista di liste di tensori)
+        support_masks = [
+            [list(support_samples['label'].values())[shot_idx].cuda() for shot_idx in range(n_shot)]
+        ]
 
-        # lista contenente liste di classi per ogni support sample
-        class_ids = [int(support_sample['label'].keys() for i, support_sample in enumerate(support_samples)]
+        class_ids = list(support_samples.get('label').keys())
+        if len(class_ids) != n_ways:
+            raise ValueError(f"Expected {n_ways} classes, but got {len(class_ids)}")
+
+        mask_classes = [] # lista di dict contenente le foreground masks and background masks
         for i, class_id in enumerate(class_ids):
-            for shot in support_masks[i]:
-                masks = []
-                for j in range(len(class_id)):
-                    mask = getMask(shot, class_id[j], class_id)
-                    masks.append(mask)
-                mask_classes.append(masks)
+            for j, shot in enumerate(support_masks[i]):
+                shot = getMask(shot, class_id, class_ids)
+                mask_classes.append(shot) # list of dicts, each dict contains fg_mask and bg_mask for a class
 
-        support_fg_masks = []
-        support_bg_masks = []
-        for shot in mask_classes:
-            support_fg_mask = []
-            support_bg_mask = []
-            for way in shot:
-                support_fg_mask.append(way['fg_mask'])
-                support_bg_mask.append(way['bg_mask'])
-            support_fg_masks.append(support_fg_mask)
-            support_bg_masks.append(support_bg_mask)
+        #foreground and background masks for support images
+        support_fg_mask = [[shot.float().cuda() for shot in way['fg_mask']]
+                           for way in mask_classes] #  way x shot x [B x H x W], list of lists of tensors
+        support_bg_mask = [[shot.float().cuda() for shot in way['bg_mask']] # way x shot x [B x H x W], list of lists of tensors
+                           for way in mask_classes]
 
-
-        print('mask:', support_fg_mask[0][0].shape)
-        print('mask:', support_bg_mask[0][0].shape)
+        # print('mask:', support_fg_mask[0][0].shape)
+        # print('mask:', support_bg_mask[0][0].shape)
 
         for i, query_images in enumerate(query_loader):
             query_images = query_images.cuda() #N x [B x 3 x H x W], tensors ( N is # of queries x batch)
 
             # Passa i supporti nel formato corretto al modello
             query_preds, _ = model(support_images, support_fg_mask, support_bg_mask, [query_images])
-            query_preds = torch.where(query_preds > 0.5, torch.ones_like(query_preds), torch.zeros_like(query_preds))
+            query_preds = torch.where(query_preds > 0.75, torch.ones_like(query_preds), torch.zeros_like(query_preds))
             if type(query_images) == list:
                 query_images = query_images[0]
 
@@ -339,13 +236,4 @@ def main(_config):
                 img = apply_mask_overlay(img, mask.squeeze(0))
                 plot_image(img, desc=f"Support Image {i+1}")
 
-            # query_preds = [apply_mask_overlay(img.unsqueeze(0), pred)
-            #                for img, pred in zip(query_images, query_preds)]
-
-            # support_images_overlayed = [[apply_mask_overlay(img, mask.squeeze(0))
-            #                             for img, mask in zip(support_image, support_masks)]
-            #                             for support_image, support_masks in zip(support_images, support_masks)]
-            # plot_results(query_preds, support_images_overlayed)
-
     print("Inference completed!")
-

@@ -50,7 +50,6 @@ def main(_run, _config, _log):
         raise ValueError('Wrong config for dataset!')
 
     labels = CLASS_LABELS[data_name][_config['label_sets']]
-    ###
     print('classes: ', labels)
 
     transforms = Compose([Resize(size=_config['input_size']), RandomMirror()])

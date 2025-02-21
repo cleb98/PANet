@@ -1,4 +1,6 @@
 runs/
+spal/
+spal_dataset/
 *.ipynb
 *DS_Store
 *.sh

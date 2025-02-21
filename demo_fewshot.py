@@ -61,6 +61,8 @@ class QueryDataset(Dataset):
         return self.transform(image)
 
 
+
+
 class SupportDataset(BaseDataset):
     def __init__(self, base_dir, annotation_file, input_size, to_tensor=None):
         super().__init__(base_dir)
@@ -72,6 +74,9 @@ class SupportDataset(BaseDataset):
 
     def __len__(self):
         return len(self.ids)
+
+    def getitem(self):
+        pass
 
     def __getitem__(self, idx):
         img_id = self.ids[idx]
@@ -237,27 +242,20 @@ def main(_config):
 
     model = FewShotSeg(pretrained_path=_config['path']['init_path'], cfg=_config['model'])
     model = torch.nn.DataParallel(model.cuda(), device_ids=[_config['gpu_id']])
+    print(f"Loading model from snapshot: {_config['snapshot']}")
     model.load_state_dict(torch.load(_config['snapshot'], map_location='cpu'))
     model.eval()
 
-    files = './spal' #demo
+    files = './spal' #'./demo' #
     input_folder = os.path.join(files, 'queries')
     support_base_dir = os.path.join(files, 'support')
-    support_classes_dir = os.path.join(support_base_dir, 'class1')
-    # #elenca solo le cartelle non i file
-    # support_classes = [c for c in os.listdir(support_base_dir) if os.path.isdir(os.path.join(support_base_dir, c))]
-    # print(support_classes)
+
+
     annotation_path = os.path.join(support_base_dir, 'support_annotation.json')
-        #'./demo/support/support_annotation.json'
 
-    # support_base_dir = './demo/support/'
-    net = _config['net']
+    # net = _config['net']
     n_shot = _config['n_shots']
-    n_ways = _config['n_ways']
-    # if n_ways != len(support_classes):
-    #     raise ValueError(f"Expected {n_ways} classes, but found {len(support_classes)}")
-
-
+    # n_ways = _config['n_ways']
 
     image_paths = [os.path.join(input_folder, f) for f in os.listdir(input_folder) if
                    f.endswith(('.png', '.jpg', '.jpeg'))]
@@ -266,7 +264,7 @@ def main(_config):
     query_loader = DataLoader(query_dataset, batch_size=_config['task']['n_queries'], shuffle=False)
 
     support_dataset = SupportDataset(
-        support_classes_dir, #support_base_dir,
+        support_base_dir, # support_classes_dir,
         annotation_path,
         _config['input_size'],
         to_tensor=ToTensorNormalize()
@@ -296,7 +294,7 @@ def main(_config):
                 mask[i] = m.cuda()
 
         # lista contenente liste di classi per ogni support sample
-        class_ids = [int(support_sample['label'].keys() for i, support_sample in enumerate(support_samples)]
+        class_ids = [list(support_sample['label'].keys()) for i, support_sample in enumerate(support_samples)]
         for i, class_id in enumerate(class_ids):
             for shot in support_masks[i]:
                 masks = []
@@ -311,20 +309,37 @@ def main(_config):
             support_fg_mask = []
             support_bg_mask = []
             for way in shot:
-                support_fg_mask.append(way['fg_mask'])
-                support_bg_mask.append(way['bg_mask'])
-            support_fg_masks.append(support_fg_mask)
-            support_bg_masks.append(support_bg_mask)
+                support_fg_masks.append(way['fg_mask'].squeeze(1))
+                support_bg_masks.append(way['bg_mask'].squeeze(1))
+            # support_fg_masks.append(support_fg_mask)
+            # support_bg_masks.append(support_bg_mask)
 
 
-        print('mask:', support_fg_mask[0][0].shape)
-        print('mask:', support_bg_mask[0][0].shape)
+        # print('mask:', support_fg_mask[0].shape)
+        # print('mask:', support_bg_mask[0].shape)
+
+        support_images = [
+            list(support_image.split(1, dim=0)) for support_image in support_images
+        ]
+
+        for i in range(len(support_images)):
+            support_masks[i] = list(support_masks[i][0].split(1, dim=0))
+
+        support_fg_masks = [
+            list(support_fg_mask.split(1, dim=0)) for support_fg_mask in support_fg_masks
+        ]
+
+        support_bg_masks = [
+            list(support_bg_mask.split(1, dim=0)) for support_bg_mask in support_bg_masks
+        ]
+        # support_fg_masks = list(support_fg_masks.split(1, dim=0))
+        # support_bg_masks = list(support_bg_masks.split(1, dim=0))
 
         for i, query_images in enumerate(query_loader):
             query_images = query_images.cuda() #N x [B x 3 x H x W], tensors ( N is # of queries x batch)
 
             # Passa i supporti nel formato corretto al modello
-            query_preds, _ = model(support_images, support_fg_mask, support_bg_mask, [query_images])
+            query_preds, _ = model(support_images, support_fg_masks, support_bg_masks, [query_images])
             query_preds = torch.where(query_preds > 0.5, torch.ones_like(query_preds), torch.zeros_like(query_preds))
             if type(query_images) == list:
                 query_images = query_images[0]
@@ -333,19 +348,12 @@ def main(_config):
             query_preds = apply_mask_overlay(query_images, query_preds.argmax(dim=1))
             plot_image(query_preds, desc=f'Query Image {i+1}')
 
-        for i, (images, masks) in enumerate(zip(support_images, support_masks)):
-            for img, mask in zip(images, masks):
-                img = denormalize_tensor(img)
-                img = apply_mask_overlay(img, mask.squeeze(0))
-                plot_image(img, desc=f"Support Image {i+1}")
+        # for images, masks in zip(support_images, support_masks):
+        #     for j, (img, mask) in enumerate(zip(images, masks)):
+        #         img = denormalize_tensor(img)
+        #         img = apply_mask_overlay(img, mask.squeeze(0))
+        #         plot_image(img, desc=f"Support Image {j+1}")
 
-            # query_preds = [apply_mask_overlay(img.unsqueeze(0), pred)
-            #                for img, pred in zip(query_images, query_preds)]
-
-            # support_images_overlayed = [[apply_mask_overlay(img, mask.squeeze(0))
-            #                             for img, mask in zip(support_image, support_masks)]
-            #                             for support_image, support_masks in zip(support_images, support_masks)]
-            # plot_results(query_preds, support_images_overlayed)
 
     print("Inference completed!")
 

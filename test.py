@@ -80,6 +80,8 @@ def main(_run, _config, _log):
     else:
         raise ValueError('Wrong config for dataset!')
     labels = CLASS_LABELS[data_name]['all'] - CLASS_LABELS[data_name][_config['label_sets']]
+    print('test_classes: ', labels)
+
     transforms = [Resize(size=_config['input_size'])]
     if _config['scribble_dilation'] > 0:
         transforms.append(DilateScribble(size=_config['scribble_dilation']))
