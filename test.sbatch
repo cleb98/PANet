@@ -4,7 +4,7 @@
 #SBATCH --mem=30G
 #SBATCH --gres=gpu:1
 #SBATCH --time=02:00:00
-#SBATCH --job-name=test_5_shot_resnet50
+#SBATCH --job-name=test_5_shot_resnet50_set0
 #SBATCH --partition=all_usr_prod
 #SBATCH --account=tesi_cbellucci
 #SBATCH -e slurm-log/%x-%j.err

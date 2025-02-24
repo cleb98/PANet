@@ -98,15 +98,7 @@ def main(_run, _config, _log):
         optimizer.zero_grad()
         query_pred, align_loss = model(support_images, support_fg_mask, support_bg_mask, query_images)
         query_loss = criterion(query_pred, query_labels) #
-        ###
-        # print('type of query_images: ', type(query_images)) #
-        # if type(query_images) == list:
-        #     query_images = query_images[0]
-        # #query pred ha 2 canali ma query_labels ne ha uno, è giusto?
-        # query_pred = decode_and_apply_mask_overlay(query_images, query_pred.unsqueeze(0))
-        # query_images = decode_and_apply_mask_overlay(query_images, query_labels.unsqueeze(0))
-        # print('query_pred_lenght: ', len(query_pred), 'images for query: ', len(query_images))
-        ###
+
         loss = query_loss + align_loss * _config['align_loss_scaler']
         loss.backward()
         optimizer.step()
@@ -119,6 +111,7 @@ def main(_run, _config, _log):
         _run.log_scalar('align_loss', align_loss)
         log_loss['loss'] += query_loss
         log_loss['align_loss'] += align_loss
+
 
         # Monitor training time and memory usage
         batch_time = time.time() - batch_start_time
@@ -137,7 +130,6 @@ def main(_run, _config, _log):
                   f"| Time per batch: {batch_time:.2f}s "
                   f"| GPU Mem: {gpu_mem:.2f} MB "
                   f"| Remaining time: {remaining_time/60:.2f} min")
-
         # Save model periodically
         if (i_iter + 1) % _config['save_pred_every'] == 0:
             _log.info('###### Taking snapshot ######')

@@ -39,7 +39,7 @@ def cfg():
     label_sets = 0 #'all' #see at utils.py, is CLASS_LABELS
     net = 'resnet50' # 'resnet50'
     mode = 'test' #'train' or 'test'
-    demo = True
+    demo = False
     dataset = 'COCO'  # 'VOC' or 'COCO'
     tensorboard_tag = 'official'
     ##############################################################################
@@ -56,8 +56,8 @@ def cfg():
         if n_shots == 1:
             snapshot = './runs/PANet_COCO_align_sets_0_1way_1shot_[train]_model_resnet50/3/snapshots/30000.pth'
         elif n_shots == 5:
-            # snapshot = './runs/PANet_COCO_align_sets_0_1way_5shot_[train]_model_resnet50/1/snapshots/30000.pth'
-            snapshot = './runs/PANet_prova_label_train/3/snapshots/30000.pth' #coco with al classes
+            snapshot = './runs/PANet_COCO_sets_0_1way_5shot_[train]_model_resnet50/1/snapshots/30000.pth'
+            # snapshot = './runs/PANet_prova_label_train/3/snapshots/30000.pth' #coco with al classes
 
     log_tensorboard = f'./runs/{mode}_{dataset}_{n_ways}way_{n_shots}shot_{n_queries}query_{net}_{tensorboard_tag}'
     events_folder = f'./runs/'
